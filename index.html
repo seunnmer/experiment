@@ -536,8 +536,23 @@
     window.studyData = studyData;
 
     function saveState(){
-      localStorage.setItem('nonFunctionalAiStudyData', JSON.stringify(studyData));
+  localStorage.setItem('nonFunctionalAIStudyData', JSON.stringify(studyData));
+
+  fetch("https://script.google.com/macros/s/AKfycbytXrAWXQiB7T_Z5yjxbq4vIthWWhhPR3LC3HebPuQwhQrBdbhQsFCsj23U3jQUfuX8/exec", {
+    method: "POST",
+    body: JSON.stringify({
+      participantId: studyData.participantId || "unknown",
+      stage: currentScreen,
+      data: studyData
+    }),
+    headers: {
+      "Content-Type": "application/json"
     }
+  })
+  .then(res => res.json())
+  .then(res => console.log("saved:", res))
+  .catch(err => console.error(err));
+}
 
     function renderAilItems(){
       const container = document.getElementById('ailItems');
