@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Non-functional AI 학습 실험 프로토타입</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <style>
+    :root{
+      --bg:#f7f7f8;
+      --panel:#ffffff;
+      --panel-soft:#f3f4f6;
+      --line:#e5e7eb;
+      --text:#111827;
+      --muted:#6b7280;
+      --accent:#10a37f;
+      --accent-soft:#e8fff8;
+      --blue:#2563eb;
+      --danger:#dc2626;
+      --radius:22px;
+      --shadow:0 12px 32px rgba(15,23,42,.08);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      line-height:1.65;
+    }
+    .shell{
+      min-height:100%;
+      padding:28px 28px 110px;
+    }
+    .container{
+      max-width:1100px;
+      margin:0 auto;
+    }
+    .screen{display:none}
+    .screen.active{display:block}
+    .card{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:28px 30px;
+      margin-bottom:18px;
+    }
+    .title{font-size:18px;color:var(--muted);margin-bottom:12px}
+    .headline{font-size:22px;font-weight:700;margin:0 0 12px}
+    .text{font-size:18px;white-space:pre-line}
+    .status-bar{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:14px 18px;
+      border-radius:999px;
+      background:var(--accent-soft);
+      border:1px solid rgba(16,163,127,.15);
+      width:max-content;
+      margin-bottom:18px;
+      font-weight:700;
+      color:#075a46;
+    }
+    .status-dot{
+      width:18px;height:18px;border-radius:50%;background:var(--accent);position:relative;flex:none;
+      box-shadow:0 0 0 0 rgba(16,163,127,.35);
+    }
+    .status-dot::after{
+      content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid rgba(16,163,127,.25);
+    }
+    .floating-next{
+      position:fixed;right:28px;bottom:24px;z-index:40;display:flex;gap:10px;align-items:center;
+    }
+    button{
+      border:none;border-radius:16px;padding:14px 22px;font-size:16px;font-weight:700;cursor:pointer;
+      transition:.2s ease;
+    }
+    .btn-primary{background:var(--accent);color:white;box-shadow:0 8px 20px rgba(16,163,127,.25)}
+    .btn-primary:hover{transform:translateY(-1px);background:#0d8f6f}
+    .btn-secondary{background:#eef2ff;color:#1e3a8a}
+    .btn-ghost{background:var(--panel);border:1px solid var(--line);color:var(--text)}
+    .btn-disabled,.btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none}
+    .q-header{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:12px}
+    .q-index{font-size:30px;font-weight:800;letter-spacing:-.02em}
+    .q-progress{color:var(--muted);font-size:15px}
+     .layout{
+      display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:22px;align-items:start;
+    }
+    .layout.no-figure{grid-template-columns:1fr}
+    .figure-box{background:#fafafa;border:1px solid var(--line);border-radius:22px;padding:14px;display:flex;justify-content:center;align-items:center;min-height:180px;overflow:hidden}
+    .figure-box svg{max-width:100%;height:auto;display:block}
+    .learning-figure{min-height:120px;padding:8px;margin-top:12px}
+    .learning-figure svg{max-width:300px;max-height:120px}
+    .test-figure svg{max-width:340px;max-height:180px}
+    .question-block{padding:18px 0;border-top:1px solid var(--line)}
+    .question-block:first-of-type{border-top:none;padding-top:6px}
+    .question-number{font-size:18px;font-weight:800;margin-bottom:10px}
+    .question-text{font-size:20px;font-weight:600;margin-bottom:12px;white-space:pre-line}
+    .options{display:grid;gap:10px}
+    .option{
+      display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:#fff;
+      cursor:pointer;
+    }
+    .option input{margin-top:4px;accent-color:var(--accent)}
+    .option.selected{border-color:var(--accent);background:#f0fdf9}
+    .hint-sidebar{position:sticky;top:22px;border:1px solid var(--line);background:#f8fbff;border-radius:18px;padding:18px;min-width:250px;align-self:start}
+    .hint-sidebar .hint-label{font-size:14px;color:#2563eb;margin-bottom:10px;font-weight:700}
+    .hint-sidebar .hint-btn{width:100%;margin-bottom:12px}
+    .learning-main{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+    .test-main{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+    .hint-center{margin-top:18px;border-top:1px solid var(--line);padding-top:18px;display:flex;flex-direction:column;align-items:center;gap:12px}
+    .hint-center .hint-btn{min-width:240px}
+    .hint-center .hint-box{width:min(760px,100%)}
+    @media (max-width: 980px){.learning-main,.test-main{grid-template-columns:1fr}}
+    .likert-group{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:10px}
+    .likert-option{border:1px solid var(--line);border-radius:14px;padding:12px 10px;text-align:center;background:#fff;cursor:pointer;transition:.2s}
+    .likert-option input{display:none}
+    .likert-option.selected{border-color:var(--accent);background:#f0fdf9}
+    .likert-labels{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;font-size:13px;color:var(--muted);margin-top:6px;text-align:center}
+    .hint-wrap{margin-top:16px}
+    .hint-btn{background:#eef2ff;color:#1e3a8a}
+    .hint-box{margin-top:12px;border:1px solid #dbeafe;background:#f8fbff;border-radius:18px;padding:16px 18px;display:none}
+    .hint-box.show{display:block}
+    .hint-label{font-size:14px;color:#2563eb;margin-bottom:8px;font-weight:700}
+    .hint-text{font-size:16px;white-space:pre-line;min-height:48px}
+    .system-toast{
+      position:fixed;top:26px;left:50%;transform:translateX(-50%);z-index:60;background:#0f172a;color:white;
+      padding:16px 22px;border-radius:999px;box-shadow:0 18px 40px rgba(15,23,42,.25);display:none;align-items:center;gap:14px;font-weight:700
+    }
+    .spinner{
+      width:22px;height:22px;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:#34d399;
+      animation:spin 1s linear infinite;flex:none;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .field{margin-bottom:18px}
+    .field label{display:block;font-size:17px;font-weight:700;margin-bottom:8px}
+    input[type="number"], input[type="text"], textarea, select{
+      width:100%;padding:15px 16px;border-radius:16px;border:1px solid #d1d5db;font-size:17px;background:#fff;
+    }
+    textarea{min-height:120px;resize:vertical}
+    .mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .math-box{font-size:34px;font-weight:800;text-align:center;padding:28px 10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:24px;margin-bottom:18px}
+    .timer{font-size:18px;font-weight:800;color:#b45309}
+    .center{text-align:center}
+    .small{font-size:14px;color:var(--muted)}
+    .divider{height:1px;background:var(--line);margin:18px 0}
+    .hidden{display:none !important}
+
+    .instruction-only.active{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:calc(100vh - 180px);
+    }
+    .instruction-only .card{
+      width:min(980px,100%);
+      margin-bottom:0;
+    }
+    @media (max-width: 900px){
+      .shell{padding:18px 18px 100px}
+      .layout,.layout.no-figure{grid-template-columns:1fr}
+      .floating-next{right:16px;bottom:16px}
+      .card{padding:20px}
+      .question-text{font-size:18px}
+      .q-index{font-size:24px}
+      .mini-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="system-toast" id="systemToast"><span class="spinner"></span><span id="systemToastText">분석 중입니다</span></div>
+  <div class="shell">
+    <div class="container">
+
+      <section class="screen instruction-only" active" id="screen-intro">
+        <div class="card">
+          <div class="title">실험 안내</div>
+          <div class="text">본 실험에서는 삼투와 확산에 대해 학습한 후, 학습한 내용에 대해 시험을 치르게 됩니다.
+
+모든 응답은 연구 목적을 위해 익명으로 수집되며, 개인을 식별할 수 있는 정보는 수집되지 않습니다.
+
+수집된 자료는 연구 이외의 목적으로 사용되지 않습니다.</div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-pre">
+        <div class="card">
+          <div class="title">사전 설문</div>
+          <div class="text">이제 간단한 사전 설문을 진행합니다.
+먼저 삼투와 확산에 대한 기본 인식을 확인합니다.
+각 문항을 읽고, 현재 자신의 생각이나 상태에 가장 가깝다고 느끼는 응답을 선택해 주세요.</div>
+        </div>
+        <div class="card">
+          <div class="field">
+            <label>1. 삼투와 확산의 개념을 얼마나 잘 알고 있다고 느끼나요?</label>
+            <div class="likert-group"><label class="likert-option"><input type="radio" name="preKnowledge1" value="1"><span>1</span></label><label class="likert-option"><input type="radio" name="preKnowledge1" value="2"><span>2</span></label><label class="likert-option"><input type="radio" name="preKnowledge1" value="3"><span>3</span></label><label class="likert-option"><input type="radio" name="preKnowledge1" value="4"><span>4</span></label><label class="likert-option"><input type="radio" name="preKnowledge1" value="5"><span>5</span></label></div>
+            <div class="likert-labels"><span>전혀 모른다</span><span>잘 모르는 편이다</span><span>보통이다</span><span>아는 편이다</span><span>매우 잘 안다</span></div>
+          </div>
+          <div class="field">
+            <label>2. 삼투와 확산과 관련된 문제를 스스로 풀 수 있다고 느끼나요?</label>
+            <div class="likert-group"><label class="likert-option"><input type="radio" name="preKnowledge2" value="1"><span>1</span></label><label class="likert-option"><input type="radio" name="preKnowledge2" value="2"><span>2</span></label><label class="likert-option"><input type="radio" name="preKnowledge2" value="3"><span>3</span></label><label class="likert-option"><input type="radio" name="preKnowledge2" value="4"><span>4</span></label><label class="likert-option"><input type="radio" name="preKnowledge2" value="5"><span>5</span></label></div>
+            <div class="likert-labels"><span>전혀 아니다</span><span>아닌 편이다</span><span>보통이다</span><span>그런 편이다</span><span>매우 그렇다</span></div>
+          </div>
+          <div class="field">
+            <label>3. 학교에서 삼투와 확산을 배운 내용을 현재도 기억하고 있다고 느끼나요?</label>
+            <div class="likert-group"><label class="likert-option"><input type="radio" name="preKnowledge3" value="1"><span>1</span></label><label class="likert-option"><input type="radio" name="preKnowledge3" value="2"><span>2</span></label><label class="likert-option"><input type="radio" name="preKnowledge3" value="3"><span>3</span></label><label class="likert-option"><input type="radio" name="preKnowledge3" value="4"><span>4</span></label><label class="likert-option"><input type="radio" name="preKnowledge3" value="5"><span>5</span></label></div>
+            <div class="likert-labels"><span>전혀 아니다</span><span>아닌 편이다</span><span>보통이다</span><span>그런 편이다</span><span>매우 그렇다</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-ail">
+        <div class="card">
+          <div class="title">사전 설문</div>
+          <div class="text">이번에는 AI 리터러시에 관한 문항에 응답해 주세요.
+각 문항을 읽고, 현재 자신의 생각과 가장 가깝다고 느끼는 응답을 선택해 주세요.</div>
+        </div>
+        <div class="card">
+          <div id="ailItems"></div>
+        </div>
+      </section>
+
+      <section class="screen instruction-only" id="screen-learning-instruction">
+        <div class="card">
+          <div class="title">학습 단계 안내</div>
+          <div class="text">이 단계에서는 삼투와 확산에 대한 여러 문항을 순차적으로 풀며 학습합니다.
+
+문제를 풀다가 도움이 필요한 경우, AI 힌트를 요청할 수 있습니다.
+
+각 문항은 한 번만 제시되며, 이전 문항으로 돌아갈 수 없습니다.
+
+따라서 각 문항을 충분히 읽고, 스스로 이해했다고 판단되면 다음 문항으로 넘어가시기 바랍니다.
+
+학습 단계에서 별도의 시간 제한은 없습니다.
+</div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-learning">
+        <div class="status-bar"><div class="status-dot" id="statusDot"></div><div>학습을 기록 중입니다</div></div>
+        <div class="card">
+          <div id="learningLayout">
+            <div class="learning-main">
+              <div class="question-block" id="lq1Block">
+                <div class="question-number" id="lq1Number">1-1</div>
+                <div class="question-text" id="lq1Text"></div>
+                <div class="options" id="lq1Options"></div>
+              </div>
+              <div class="question-block" id="lq2Block">
+                <div class="question-number" id="lq2Number">1-2</div>
+                <div class="question-text" id="lq2Text"></div>
+                <div class="options" id="lq2Options"></div>
+              </div>
+            </div>
+            <div class="figure-box learning-figure hidden" id="learningFigureBox"></div>
+            <div class="hint-center">
+              <button class="hint-btn" id="learningHintBtn">AI 힌트 보기</button>
+              <div class="hint-box" id="learningHintBox">
+                <div class="hint-text" id="learningHintText"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-mj1">
+        <div class="card">
+          
+          <div class="text">학습 단계가 종료되었습니다.
+이제 방금까지의 학습을 바탕으로 자신의 이해 수준과 학습 상태를 스스로 평가하게 됩니다.
+각 문항을 읽고, 현재 자신의 상태에 가장 가깝다고 판단되는 값을 입력해 주시기 바랍니다.
+1번과 2번 문항은 0에서 100 사이의 숫자를 입력해 주세요.</div>
+        </div>
+        <div class="card">
+          <div class="field"><label>1. 다시 확인하거나 복습이 필요하다고 느끼는 문항은 전체의 몇 % 정도라고 생각하시나요? 0에서 100 사이의 숫자를 입력해 주세요.</label><input type="number" min="0" max="100" id="mj1_review" /></div>
+          <div class="field"><label>2. 최종 시험에서 전체 문항 중 몇 % 정도의 문제를 맞힐 것이라고 예상하시나요? 0에서 100 사이의 숫자를 입력해 주세요.</label><input type="number" min="0" max="100" id="mj1_predict" /></div>
+          <div class="field"><label>3. 추가로 학습할 수 있다면, 얼마나 더 학습하고 싶다고 생각하시나요? 원하는 학습 시간을 분 단위로 입력해 주세요.</label><input type="number" min="0" id="mj1_moretime" /></div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-distractor">
+        <div class="card center">
+          
+          <div class="text">지금부터는 간단한 수학 문제를 풀게 됩니다.
+최대한 빠르고 정확하게 풀어 주세요.
+답을 입력한 후 Enter 키를 누르면 다음 문제가 제시됩니다.</div>
+          <div class="divider"></div>
+          <div class="timer" style="display:none">남은 시간 <span id="distractorTimer">02:00</span></div>
+        </div>
+        <div class="card center">
+          <div class="math-box" id="mathPrompt">12 + 7 = ?</div>
+          <div class="field" style="max-width:240px;margin:0 auto"><input type="number" id="mathAnswer" autocomplete="off" inputmode="numeric" /></div>
+          <div class="small">정답을 입력한 뒤 Enter를 누르세요.</div>
+        </div>
+      </section>
+
+      <section class="screen instruction-only" id="screen-final-instruction">
+        <div class="card">
+          
+          <div class="text">지금부터는 학습한 내용에 대해 시험을 치르게 됩니다.
+
+각 문항은 한 번만 제시되며, 이전 문항으로 돌아갈 수 없습니다.
+
+따라서 각 문항을 충분히 읽고, 현재 자신의 이해를 바탕으로 응답해 주시기 바랍니다.</div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-final-test">
+        <div class="card">
+          <div id="testLayout">
+            <div class="test-main">
+              <div class="question-block">
+                <div class="question-number" id="tq1Number">1-1</div>
+                <div class="question-text" id="tq1Text"></div>
+                <div class="options" id="tq1Options"></div>
+              </div>
+              <div class="question-block">
+                <div class="question-number" id="tq2Number">1-2</div>
+                <div class="question-text" id="tq2Text"></div>
+                <div class="options" id="tq2Options"></div>
+              </div>
+            </div>
+            <div class="figure-box test-figure hidden" id="testFigureBox"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-mj2">
+        <div class="card">
+          
+          <div class="text">시험이 종료되었습니다. 방금 완료한 시험에서, 전체 문항 중 몇 % 정도의 문제를 맞혔다고 생각하시나요? 0에서 100 사이의 숫자를 입력해 주세요.</div>
+        </div>
+        <div class="card">
+          <div class="field"><label>예상 정답률(%)</label><input type="number" min="0" max="100" id="mj2_predict" /></div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-post">
+        <div class="card">
+          
+          <div class="text">마지막으로 간단한 설문에 응답해 주시기 바랍니다. 이 설문은 실험에 대한 전반적인 경험과 인식을 확인하고, 연구 분석에 필요한 기본 정보를 수집하기 위한 것입니다. 각 문항을 읽고, 자신의 생각이나 경험에 가장 가깝다고 느끼는 응답을 선택해 주시기 바랍니다. 정답은 없으며, 가능한 한 솔직하게 응답해 주시는 것이 중요합니다. 모든 문항에 응답한 후, 하단의 제출 버튼을 눌러 주시기 바랍니다.</div>
+        </div>
+        <div class="card">
+          <div class="field"><label>학습 중 AI가 실제로 작동하고 있다고 느꼈나요?</label>
+            <div class="likert-group" id="postAiRealGroup">
+              <label class="likert-option"><input type="radio" name="postAiReal" value="1"><span>1</span></label>
+              <label class="likert-option"><input type="radio" name="postAiReal" value="2"><span>2</span></label>
+              <label class="likert-option"><input type="radio" name="postAiReal" value="3"><span>3</span></label>
+              <label class="likert-option"><input type="radio" name="postAiReal" value="4"><span>4</span></label>
+              <label class="likert-option"><input type="radio" name="postAiReal" value="5"><span>5</span></label>
+            </div>
+            <div class="likert-labels"><span>전혀 그렇지 않다</span><span>그렇지 않은 편이다</span><span>보통이다</span><span>그런 편이다</span><span>매우 그렇다</span></div>
+          </div>
+          <div class="field"><label>AI 힌트가 학습에 도움이 되었다고 느꼈나요?</label>
+            <div class="likert-group" id="postAiHelpGroup">
+              <label class="likert-option"><input type="radio" name="postAiHelp" value="1"><span>1</span></label>
+              <label class="likert-option"><input type="radio" name="postAiHelp" value="2"><span>2</span></label>
+              <label class="likert-option"><input type="radio" name="postAiHelp" value="3"><span>3</span></label>
+              <label class="likert-option"><input type="radio" name="postAiHelp" value="4"><span>4</span></label>
+              <label class="likert-option"><input type="radio" name="postAiHelp" value="5"><span>5</span></label>
+            </div>
+            <div class="likert-labels"><span>전혀 그렇지 않다</span><span>그렇지 않은 편이다</span><span>보통이다</span><span>그런 편이다</span><span>매우 그렇다</span></div>
+          </div>
+          <div class="field"><label>학습 중 AI에 어느 정도 의존했다고 느꼈나요?</label>
+            <div class="likert-group" id="postDependencyGroup">
+              <label class="likert-option"><input type="radio" name="postDependency" value="1"><span>1</span></label>
+              <label class="likert-option"><input type="radio" name="postDependency" value="2"><span>2</span></label>
+              <label class="likert-option"><input type="radio" name="postDependency" value="3"><span>3</span></label>
+              <label class="likert-option"><input type="radio" name="postDependency" value="4"><span>4</span></label>
+              <label class="likert-option"><input type="radio" name="postDependency" value="5"><span>5</span></label>
+            </div>
+            <div class="likert-labels"><span>전혀 그렇지 않다</span><span>그렇지 않은 편이다</span><span>보통이다</span><span>그런 편이다</span><span>매우 그렇다</span></div>
+          </div>
+          <div class="mini-grid">
+            <div class="field"><label>연령</label><input type="number" min="0" id="post_age" /></div>
+            <div class="field"><label>성별</label><select id="post_gender"><option value="">선택하세요</option><option>여성</option><option>남성</option><option>응답하지 않음</option></select></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen instruction-only" id="screen-end">
+        <div class="card center">
+          <div class="text">모든 실험이 종료되었습니다.
+
+실험에 참여해 주셔서 감사합니다.
+
+이제 실험자의 자리로 와주시면 됩니다.</div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="floating-next">
+    <button class="btn-primary" id="nextBtn">다음</button>
+  </div>
+
+  <script>
+    const learningSets = [
+      {
+        setId: 1,
+        q1: { id:'1-1', text:'모든 세포막은', options:['반투과성이다','투과성이다'], answer:0 },
+        q2: { id:'1-2', text:'내가 이렇게 답한 이유는 세포막이', options:['물질이 세포 안팎으로 자유롭게 이동하도록 하기 때문이다','일부 물질은 세포 안으로 들어오게 하지만, 모든 물질이 밖으로 나가는 것은 막기 때문이다','유익한 물질만 세포 안으로 들어오게 하기 때문이다','일부 물질은 통과시키지만 다른 물질은 통과시키지 않기 때문이다'], answer:3 },
+        hint:'세포막의 핵심은 모든 것을 다 통과시키는 것이 아니라, 일부는 통과시키고 일부는 통과시키지 않는 선택성에 있습니다.'
+      },
+      {
+        setId: 2,
+        q1: { id:'2-1', text:'확산 과정 동안 입자는 일반적으로', options:['높은 농도에서 낮은 농도로 이동한다','낮은 농도에서 높은 농도로 이동한다'], answer:0 },
+        q2: { id:'2-2', text:'내가 이렇게 답한 이유는', options:['밀집된 입자들이 더 넓은 공간으로 이동하려 하기 때문이다','유체 속에 떠 있는 입자의 무작위 운동이 균일한 분포를 만들기 때문이다','입자들이 균일하게 분포될 때까지 계속 움직이다가 그 후에는 멈추기 때문이다','입자들이 서로를 밀어낼 가능성이 더 크기 때문이다'], answer:1 },
+        hint:'확산은 입자가 스스로 목적을 가지고 움직이는 것이 아니라, 무작위 운동의 결과로 전체적으로 균일한 분포가 되는 현상입니다.'
+      },
+      {
+        setId: 3,
+        q1: { id:'3-1', text:'소량의 소금(1 티스푼)을 많은 양의 물(4리터 또는 1갤런)에 넣고 저어주지 않은 채 며칠 동안 두면,\n소금 분자는', options:['용기 바닥에 더 많이 농축된다','용기 전체에 고르게 분포된다'], answer:1 },
+        q2: { id:'3-2', text:'내가 이렇게 답한 이유는', options:['소금이 물보다 무거워서 가라앉기 때문이다','소금은 물에 잘 녹지 않거나 거의 녹지 않기 때문이다','가라앉을 시간이 길기 때문이다','입자가 높은 농도에서 낮은 농도로 이동하기 때문이다'], answer:3 },
+        hint:'녹아 있는 소금 분자는 시간이 지나면 특정 위치에 머무는 것이 아니라, 농도 차가 줄어드는 방향으로 퍼져 나갑니다.'
+      },
+      {
+        setId: 4,
+        q1: { id:'4-1', text:'그림 1에서 두 개의 물기둥이 반투과성 막으로 분리되어 있으며, 이 막은 물 분자만 통과시킨다. Side 1에는 갈색 염료와 물이 있고, Side 2에는 순수한 물이 있다. 2시간 후, Side 1의 물 높이는', options:['Side 2보다 높다','Side 2보다 낮다','Side 2와 같은 높이이다'], answer:0 },
+        q2: { id:'4-2', text:'내가 이렇게 답한 이유는', options:['물은 용질 농도가 높은 곳에서 낮은 곳으로 이동하기 때문이다','물은 자유롭게 흐르며 양쪽의 높이를 같게 유지하기 때문이다','Side 1에서 물 분자의 농도가 더 낮기 때문이다','물은 물 농도가 낮은 곳에서 높은 곳으로 이동하기 때문이다'], answer:2 },
+        hint:'막을 물만 통과할 수 있다면, 물은 상대적으로 물이 더 많은 쪽에서 물이 더 적은 쪽으로 이동합니다. 용질이 있는 쪽은 물 분자의 비율이 더 낮습니다.',
+        figure:'fig1'
+      },
+      {
+        setId: 5,
+        q1: { id:'5-1', text:'서로 다른 온도의 맑은 물이 동일한 양으로 담긴 두 개의 비커가 있다고 하자(그림 2). 각 비커에 초록색 염료 한 방울을 넣으면 결국 물은 연한 초록색이 된다. 어느 비커에서 먼저 균일한 색이 되는가?', options:['비커 1','비커 2'], answer:1 },
+        q2: { id:'5-2', text:'내가 이렇게 답한 이유는', options:['염료가 더 빨리 분해되기 때문이다','더 느리게 움직이면 분자 이동이 더 쉽기 때문이다','염료 분자가 더 빠르게 움직이기 때문이다','온도가 분자의 크기를 변화시키기 때문이다'], answer:2 },
+        hint:'온도가 높을수록 분자 운동이 활발해집니다. 그래서 염료도 더 빨리 퍼집니다.',
+        figure:'fig2'
+      },
+      {
+        setId: 6,
+        q1: { id:'6-1', text:'반투과성 막으로 나뉜 용기의 왼쪽에는 수용액이 있고(그림 3), 오른쪽에는 순수한 물이 있다. 시간이 지나면서 오른쪽은 점점 파랗게 되고, 왼쪽의 파란색은 옅어진다. 이는', options:['양쪽의 액체 높이가 같게 유지됨을 의미한다','Side 1의 액체 높이는 감소하고 Side 2는 증가함을 의미한다','Side 1의 액체 높이는 증가하고 Side 2는 감소함을 의미한다'], answer:1 },
+        q2: { id:'6-2', text:'내가 이렇게 답한 이유는', options:['물과 염료 모두 막을 통과할 수 있기 때문이다','염료는 막을 통과할 수 있지만 물보다 더 느리게 이동하기 때문이다','염료가 Side 2로 이동하여 액체의 높이를 높게 만들기 때문이다','대기압은 항상 수위가 같게 유지되도록 하기 때문이다'], answer:0 },
+        hint:'오른쪽이 파랗게 된다는 것은 염료도 막을 통과했다는 뜻입니다. 동시에 물 이동도 일어나므로 액체 높이가 함께 달라질 수 있습니다.',
+        figure:'fig3'
+      },
+      {
+        setId: 7,
+        q1: { id:'7-1', text:'인간의 살아있는 혈액 세포를 순수한 물에 넣으면 세포는', options:['쪼그라든다','부풀어 터진다','변하지 않는다'], answer:1 },
+        q2: { id:'7-2', text:'내가 이렇게 답한 이유는', options:['물 분자는 용질 농도가 높은 곳에서 낮은 곳으로 이동하기 때문이다','세포는 항상성을 유지하기 때문이다','세포는 인체 밖에서 안정성을 잃기 때문이다','물 분자는 물 농도가 높은 곳에서 낮은 곳으로 이동하기 때문이다'], answer:3 },
+        hint:'세포 안쪽에는 용질이 있고, 바깥은 순수한 물이라면 바깥쪽이 물 농도가 더 높습니다. 따라서 물이 세포 안으로 들어오게 됩니다.'
+      },
+      {
+        setId: 8,
+        q1: { id:'8-1', text:'맑은 물에 파란 염료 한 방울을 떨어뜨리고 몇 시간 후 용액이 균일한 연한 파란색이 되었다면, 이때 염료 분자는', options:['움직임을 멈춘다','계속 무작위로 움직인다'], answer:1 },
+        q2: { id:'8-2', text:'내가 이렇게 답한 이유는', options:['분자는 균일하게 분포될 때까지 움직이다가 그 후에는 멈추기 때문이다','염료 분자가 멈춘다면 용기 바닥에 가라앉을 것이기 때문이다','분자는 균일하게 분포된 후에도 계속 움직이기 때문이다','이것은 액체 상태이기 때문에 그렇고, 고체 상태라면 분자는 멈춘다'], answer:2 },
+        hint:'균일하게 퍼진 상태는 움직임이 멈춘 상태가 아니라, 계속 움직이지만 전체적으로 농도 차가 없는 상태입니다.'
+      },
+      {
+        setId: 9,
+        q1: { id:'9-1', text:'그림 4는 두 개의 동일한 비커에 서로 다른 수용액을 막 넣은 상황을 보여준다. 두 비커의 용액 부피는 동일하다. 이때 비커 1은', options:['비커 2보다 물의 양이 많다','비커 2보다 물의 양이 적다','비커 2와 물의 양이 같다'], answer:0 },
+        q2: { id:'9-2', text:'내가 이렇게 답한 이유는', options:['두 비커의 액체 높이가 같기 때문이다','비커 1의 물에는 더 많은 용질이 포함되어 있기 때문이다','비커 1의 물에는 더 적은 용질이 포함되어 있기 때문이다'], answer:2 },
+        hint:'두 비커의 부피가 같아도 용질 비율이 다르면 실제 물의 양은 다를 수 있습니다. 용질이 적은 쪽이 상대적으로 물의 비율이 더 큽니다.',
+        figure:'fig4'
+      }
+    ];
+
+    const finalTestSets = [
+      {
+        setId:'A',
+        q1:{id:'T1-1', text:'모든 세포막은', options:['반투과성이다','투과성이다'], answer:0},
+        q2:{id:'T1-2', text:'내가 이렇게 답한 이유는 세포막이', options:['물질이 세포 안팎으로 자유롭게 이동하도록 하기 때문이다','일부 물질은 세포 안으로 들어오게 하지만, 모든 물질이 밖으로 나가는 것은 막기 때문이다','유익한 물질만 세포 안으로 들어오게 하기 때문이다','일부 물질은 통과시키지만 다른 물질은 통과시키지 않기 때문이다'], answer:3}
+      },
+      {
+        setId:'B',
+        q1:{id:'T2-1', text:'어떤 막이 물만 통과시키고 용질은 통과시키지 못할 때, 물은 일반적으로', options:['물 농도가 높은 쪽에서 낮은 쪽으로 이동한다','용질 농도가 낮은 쪽에서 높은 쪽으로 이동한다','항상 양쪽에 같은 양으로 남아 있다'], answer:0},
+        q2:{id:'T2-2', text:'내가 이렇게 답한 이유는', options:['물은 항상 용질과 같은 방향으로 이동하기 때문이다','삼투는 물 분자의 농도 차이를 줄이는 방향으로 일어나기 때문이다','막이 있으면 분자 운동이 멈추기 때문이다'], answer:1}
+      },
+      {
+        setId:'C',
+        q1:{id:'T3-1', text:'서로 다른 온도의 두 용액에 같은 염료를 한 방울씩 떨어뜨렸을 때, 더 빨리 퍼지는 쪽은', options:['온도가 낮은 쪽','온도가 높은 쪽'], answer:1},
+        q2:{id:'T3-2', text:'내가 이렇게 답한 이유는', options:['온도가 높을수록 염료 분자가 더 빠르게 움직이기 때문이다','온도가 높을수록 분자가 더 커지기 때문이다','온도가 높으면 항상 액체 높이가 올라가기 때문이다'], answer:0}, figure:'fig2'
+      },
+      {
+        setId:'D',
+        q1:{id:'T4-1', text:'어떤 세포를 매우 묽은 용액에 넣었더니 세포 안으로 물이 들어왔다. 이는', options:['세포 밖의 물 농도가 더 높았음을 의미한다','세포 안의 물 농도가 더 높았음을 의미한다','세포막이 모든 물질을 자유롭게 통과시킨다는 뜻이다'], answer:0},
+        q2:{id:'T4-2', text:'내가 이렇게 답한 이유는', options:['물은 농도 차가 있을 때 물 농도가 높은 곳에서 낮은 곳으로 이동하기 때문이다','물은 항상 용질이 많은 쪽에서 적은 쪽으로 이동하기 때문이다','세포는 항상 같은 부피를 유지하기 때문이다'], answer:0}
+      },
+      {
+        setId:'E',
+        q1:{id:'T5-1', text:'균일하게 섞인 염료 용액에서 염료 분자는', options:['움직임을 멈춘다','계속 움직이지만 전체적으로는 농도 차가 없다'], answer:1},
+        q2:{id:'T5-2', text:'내가 이렇게 답한 이유는', options:['균일 분포는 분자 운동이 없다는 뜻이기 때문이다','분자는 계속 무작위 운동을 하지만 순변화가 없을 수 있기 때문이다','액체에서는 분자가 항상 한 방향으로만 움직이기 때문이다'], answer:1}
+      },
+      {
+        setId:'F',
+        q1:{id:'T6-1', text:'같은 부피의 10% 소금용액과 15% 소금용액이 있을 때, 더 많은 물을 포함하는 것은', options:['10% 소금용액','15% 소금용액','같다'], answer:0},
+        q2:{id:'T6-2', text:'내가 이렇게 답한 이유는', options:['농도가 낮을수록 같은 부피 안에서 용질 비율이 더 낮기 때문이다','농도가 높을수록 물도 항상 더 많기 때문이다','부피가 같으면 물의 양도 항상 같기 때문이다'], answer:0}, figure:'fig4'
+      }
+    ];
+
+    const ailItems = [
+      '나는 스마트 기기와 비스마트(non-smart) 기기를 구분할 수 있다.',
+      '나는 AI 기술이 나에게 어떻게 도움이 되는지 잘 모른다.',
+      '나는 내가 사용하는 애플리케이션이나 제품에 어떤 AI 기술이 사용되고 있는지 파악할 수 있다.',
+      '나는 일상적인 작업을 수행하는 데 AI 애플리케이션이나 제품을 능숙하게 사용할 수 있다.',
+      '나는 새로운 AI 애플리케이션이나 제품을 사용하는 방법을 배우는 것이 대체로 어렵다.',
+      '나는 작업 효율을 높이기 위해 AI 애플리케이션이나 제품을 활용할 수 있다.',
+      '나는 AI 애플리케이션이나 제품을 사용해보고 난 뒤에, 기능과 한계를 평가할 수 있다.',
+      '나는 스마트 에이전트가 제공하는 여러 해결 방안 중에서 적절한 것을 선택할 수 있다.',
+      '나는 다양한 선택지 중에서 특정 과제에 적합한 AI 애플리케이션이나 제품을 고를 수 있다.',
+      '나는 AI 애플리케이션이나 제품을 사용할 때 항상 윤리적 원칙을 준수한다.',
+      '나는 AI 애플리케이션이나 제품을 사용할 때 개인정보 보호나 정보 보안 문제에 거의 신경 쓰지 않는다.',
+      '나는 AI 기술의 오용에 대해 항상 경계한다.'
+    ];
+
+    const screens = ['screen-intro','screen-pre','screen-ail','screen-learning-instruction','screen-learning','screen-mj1','screen-distractor','screen-final-instruction','screen-final-test','screen-mj2','screen-post','screen-end'];
+    let currentScreen = 0;
+    let learningIndex = 0;
+    let testIndex = 0;
+    let learningStartTime = null;
+    let currentSetEnterTime = null;
+    let distractorEndTime = null;
+    let distractorTimerId = null;
+    let currentMath = null;
+
+    const studyData = {
+      condition: 'Non-functional AI',
+      startedAt: new Date().toISOString(),
+      preSurvey: {},
+      learning: {
+        totalStart: null,
+        totalEnd: null,
+        totalTimeMs: 0,
+        sets: {}
+      },
+      mj1: {},
+      distractor: { start:null, end:null, responses:[] },
+      finalTest: { totalStart:null, totalEnd:null, totalTimeMs:0, sets:{} },
+      mj2: {},
+      postSurvey: {}
+    };
+    window.studyData = studyData;
+
+    function saveState(){
+      localStorage.setItem('nonFunctionalAiStudyData', JSON.stringify(studyData));
+    }
+
+    function renderAilItems(){
+      const container = document.getElementById('ailItems');
+      if(!container || container.dataset.ready) return;
+      container.dataset.ready = 'true';
+      container.innerHTML = ailItems.map((text, idx) => `
+        <div class="field">
+          <label>${idx+1}. ${text}</label>
+          <div class="likert-group">
+            <label class="likert-option"><input type="radio" name="ail${idx+1}" value="1"><span>1</span></label>
+            <label class="likert-option"><input type="radio" name="ail${idx+1}" value="2"><span>2</span></label>
+            <label class="likert-option"><input type="radio" name="ail${idx+1}" value="3"><span>3</span></label>
+            <label class="likert-option"><input type="radio" name="ail${idx+1}" value="4"><span>4</span></label>
+            <label class="likert-option"><input type="radio" name="ail${idx+1}" value="5"><span>5</span></label>
+          </div>
+          <div class="likert-labels"><span>전혀 그렇지 않다</span><span>그렇지 않은 편이다</span><span>보통이다</span><span>그런 편이다</span><span>매우 그렇다</span></div>
+        </div>`).join('');
+      Array.from({length:12}, (_,i)=>`ail${i+1}`).forEach(name=>{
+        document.querySelectorAll(`input[name="${name}"]`).forEach(inp=>{
+          inp.addEventListener('change', ()=>{ syncLikertVisual(name); updateNextButton(); });
+        });
+        syncLikertVisual(name);
+      });
+    }
+
+    function showScreen(id){
+      screens.forEach(s => document.getElementById(s).classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      if(id === 'screen-ail') renderAilItems();
+      updateNextButton();
+      window.scrollTo({top:0, behavior:'smooth'});
+    }
+
+    function setOptionSelected(container, value){
+      Array.from(container.querySelectorAll('.option')).forEach((el, i)=>{
+        el.classList.toggle('selected', i === value);
+      });
+    }
+
+    function renderOptions(container, name, options, selected, onChange){
+      container.innerHTML = '';
+      options.forEach((opt, idx)=>{
+        const label = document.createElement('label');
+        label.className = 'option' + (selected === idx ? ' selected':'' );
+        label.innerHTML = `<input type="radio" name="${name}" ${selected===idx?'checked':''}><div>${String.fromCharCode(97+idx)}. ${opt}</div>`;
+        label.addEventListener('click', ()=>{ onChange(idx); setTimeout(updateNextButton, 0); });
+        container.appendChild(label);
+      });
+    }
+
+    function typeText(target, text){
+      target.textContent = '';
+      let i = 0;
+      const tick = () => {
+        if(i <= text.length){
+          target.textContent = text.slice(0, i);
+          i++;
+          setTimeout(tick, text[i-1] === ' ' ? 18 : 28);
+        }
+      };
+      tick();
+    }
+
+    function getLearningSetState(setId){
+      if(!studyData.learning.sets[setId]){
+        studyData.learning.sets[setId] = {
+          answers: {},
+          hintClicks: 0,
+          hintUsed: false,
+          timeMs: 0,
+          visits: 0
+        };
+      }
+      return studyData.learning.sets[setId];
+    }
+
+    function renderLearningSet(){
+      const set = learningSets[learningIndex];
+      const state = getLearningSetState(set.setId);
+      state.visits += 1;
+      currentSetEnterTime = Date.now();
+      document.getElementById('lq1Number').textContent = set.q1.id;
+      document.getElementById('lq2Number').textContent = set.q2.id;
+      document.getElementById('lq1Text').textContent = set.q1.text;
+      document.getElementById('lq2Text').textContent = set.q2.text;
+
+      const renderLearningOptionsOnly = () => {
+        renderOptions(document.getElementById('lq1Options'), `lq1_${set.setId}`, set.q1.options, state.answers[set.q1.id], idx => {
+          state.answers[set.q1.id] = idx;
+          saveState();
+          renderLearningOptionsOnly();
+        });
+        renderOptions(document.getElementById('lq2Options'), `lq2_${set.setId}`, set.q2.options, state.answers[set.q2.id], idx => {
+          state.answers[set.q2.id] = idx;
+          saveState();
+          renderLearningOptionsOnly();
+        });
+        updateNextButton();
+      };
+      renderLearningOptionsOnly();
+
+      const hintBox = document.getElementById('learningHintBox');
+      const hintText = document.getElementById('learningHintText');
+      hintBox.classList.remove('show');
+      hintText.textContent = '';
+      document.getElementById('learningHintBtn').onclick = ()=>{
+        state.hintClicks += 1;
+        state.hintUsed = true;
+        hintBox.classList.add('show');
+        typeText(hintText, set.hint);
+        saveState();
+      };
+
+      renderFigure(document.getElementById('learningFigureBox'), set.figure);
+      document.getElementById('learningLayout').classList.toggle('no-figure', !set.figure);
+      updateNextButton();
+      saveState();
+    }
+
+    function getTestSetState(setId){
+      if(!studyData.finalTest.sets[setId]){
+        studyData.finalTest.sets[setId] = { answers:{}, timeMs:0, visits:0 };
+      }
+      return studyData.finalTest.sets[setId];
+    }
+
+    function renderTestSet(){
+      const set = finalTestSets[testIndex];
+      const state = getTestSetState(set.setId);
+      state.visits += 1;
+      currentSetEnterTime = Date.now();
+      document.getElementById('tq1Number').textContent = set.q1.id.replace(/^T/, '');
+      document.getElementById('tq2Number').textContent = set.q2.id.replace(/^T/, '');
+      document.getElementById('tq1Text').textContent = set.q1.text;
+      document.getElementById('tq2Text').textContent = set.q2.text;
+      renderOptions(document.getElementById('tq1Options'), `tq1_${set.setId}`, set.q1.options, state.answers[set.q1.id], idx=>{ state.answers[set.q1.id]=idx; saveState(); renderTestSet();});
+      renderOptions(document.getElementById('tq2Options'), `tq2_${set.setId}`, set.q2.options, state.answers[set.q2.id], idx=>{ state.answers[set.q2.id]=idx; saveState(); renderTestSet();});
+      renderFigure(document.getElementById('testFigureBox'), set.figure);
+      document.getElementById('testLayout').classList.toggle('no-figure', !set.figure);
+      updateNextButton();
+      saveState();
+    }
+
+    function renderFigure(container, key){
+      if(!key){ container.innerHTML=''; container.classList.add('hidden'); return; }
+      container.classList.remove('hidden');
+      const figures = {
+        fig1: `<svg viewBox="0 0 420 240" aria-label="Figure 1"><rect x="18" y="28" width="118" height="152" fill="#dcc29d" stroke="#000" stroke-width="10"/><rect x="264" y="28" width="118" height="152" fill="#fff" stroke="#000" stroke-width="10"/><path d="M136 100 L264 100" stroke="#000" stroke-width="10"/><path d="M200 0 L200 100" stroke="#000" stroke-width="10"/><text x="210" y="26" text-anchor="middle" font-size="28">Fig.1</text><text x="77" y="94" text-anchor="middle" font-size="38">Side 1</text><text x="323" y="94" text-anchor="middle" font-size="38">Side 2</text><text x="77" y="138" text-anchor="middle" font-size="27">dye and water</text><text x="323" y="138" text-anchor="middle" font-size="27">water only</text><path d="M200 214 L200 178" stroke="#000" stroke-width="8"/><polygon points="200,170 188,186 212,186" fill="#000"/><text x="210" y="230" text-anchor="middle" font-size="30">membrane</text></svg>`,
+        fig2: `<svg viewBox="0 0 420 240" aria-label="Figure 2"><text x="210" y="26" text-anchor="middle" font-size="28">Fig.2</text><rect x="26" y="38" width="142" height="156" fill="#acefdc" stroke="#000" stroke-width="8"/><rect x="250" y="38" width="142" height="156" fill="#acefdc" stroke="#000" stroke-width="8"/><text x="96" y="95" text-anchor="middle" font-size="34">25C</text><text x="322" y="95" text-anchor="middle" font-size="34">36C</text><text x="96" y="222" text-anchor="middle" font-size="32">Beaker 1</text><text x="322" y="222" text-anchor="middle" font-size="32">Beaker 2</text></svg>`,
+        fig3: `<svg viewBox="0 0 420 240" aria-label="Figure 3"><rect x="18" y="28" width="118" height="152" fill="#bfe8fa" stroke="#000" stroke-width="10"/><rect x="264" y="28" width="118" height="152" fill="#fff" stroke="#000" stroke-width="10"/><path d="M136 100 L264 100" stroke="#000" stroke-width="10"/><path d="M200 0 L200 100" stroke="#000" stroke-width="10"/><text x="210" y="26" text-anchor="middle" font-size="28">Fig.3</text><text x="77" y="94" text-anchor="middle" font-size="38">Side 1</text><text x="323" y="94" text-anchor="middle" font-size="38">Side 2</text><text x="77" y="138" text-anchor="middle" font-size="27">dye and water</text><text x="323" y="138" text-anchor="middle" font-size="27">water only</text><path d="M200 214 L200 178" stroke="#000" stroke-width="8"/><polygon points="200,170 188,186 212,186" fill="#000"/><text x="210" y="230" text-anchor="middle" font-size="30">membrane</text></svg>`,
+        fig4: `<svg viewBox="0 0 420 240" aria-label="Figure 4"><text x="210" y="26" text-anchor="middle" font-size="28">Fig.4</text><rect x="34" y="38" width="132" height="156" fill="#fff" stroke="#000" stroke-width="8"/><rect x="254" y="38" width="132" height="156" fill="#fff" stroke="#000" stroke-width="8"/><text x="100" y="92" text-anchor="middle" font-size="28">10% salt</text><text x="100" y="126" text-anchor="middle" font-size="28">solution</text><text x="320" y="92" text-anchor="middle" font-size="28">15% salt</text><text x="320" y="126" text-anchor="middle" font-size="28">solution</text><text x="100" y="222" text-anchor="middle" font-size="32">Beaker 1</text><text x="320" y="222" text-anchor="middle" font-size="32">Beaker 2</text></svg>`
+      };
+      container.innerHTML = figures[key] || '';
+    }
+
+    function currentLearningAnswered(){
+      const set = learningSets[learningIndex];
+      const state = getLearningSetState(set.setId);
+      return Number.isInteger(state.answers[set.q1.id]) && Number.isInteger(state.answers[set.q2.id]);
+    }
+
+    function currentTestAnswered(){
+      const set = finalTestSets[testIndex];
+      const state = getTestSetState(set.setId);
+      return Number.isInteger(state.answers[set.q1.id]) && Number.isInteger(state.answers[set.q2.id]);
+    }
+
+
+    function getCheckedValue(name){
+      const el = document.querySelector(`input[name="${name}"]:checked`);
+      return el ? el.value : '';
+    }
+    function syncLikertVisual(name){
+      document.querySelectorAll(`input[name="${name}"]`).forEach(inp=>{
+        const box = inp.closest('.likert-option');
+        if(box) box.classList.toggle('selected', inp.checked);
+      });
+    }
+    const likertNames = ['preKnowledge1','preKnowledge2','preKnowledge3','postAiReal','postAiHelp','postDependency', ...Array.from({length:12}, (_,i)=>`ail${i+1}`)];
+    likertNames.forEach(name=>{
+      document.querySelectorAll(`input[name="${name}"]`).forEach(inp=>{
+        inp.addEventListener('change', ()=>{ syncLikertVisual(name); updateNextButton(); });
+      });
+      syncLikertVisual(name);
+    });
+
+    function updateNextButton(){
+      const btn = document.getElementById('nextBtn');
+      btn.textContent = currentScreen === screens.length - 2 ? '제출' : (currentScreen === screens.length -1 ? '종료' : '다음');
+      let enabled = true;
+      const id = screens[currentScreen];
+      if(id === 'screen-pre') enabled = !!(getCheckedValue('preKnowledge1') && getCheckedValue('preKnowledge2') && getCheckedValue('preKnowledge3'));
+      if(id === 'screen-ail') enabled = ailItems.every((_,i)=> !!getCheckedValue(`ail${i+1}`));
+      if(id === 'screen-learning') enabled = currentLearningAnswered();
+      if(id === 'screen-mj1') enabled = mj1_review.value !== '' && mj1_predict.value !== '' && mj1_moretime.value !== '';
+      if(id === 'screen-distractor') enabled = false;
+      if(id === 'screen-final-test') enabled = currentTestAnswered();
+      if(id === 'screen-mj2') enabled = mj2_predict.value !== '';
+      if(id === 'screen-post') enabled = !!(getCheckedValue('postAiReal') && getCheckedValue('postAiHelp') && getCheckedValue('postDependency') && post_age.value !== '' && post_gender.value);
+      btn.disabled = !enabled;
+      btn.classList.toggle('btn-disabled', !enabled);
+      btn.classList.toggle('hidden', id === 'screen-distractor' || id === 'screen-end');
+    }
+
+    let learningPopupCount = 0;
+    function showSystemMessage(textMsg){
+      const toast = document.getElementById('systemToast');
+      document.getElementById('systemToastText').textContent = textMsg;
+      toast.style.display = 'flex';
+      gsap.fromTo(toast, {y:-18, opacity:0, scale:.96}, {y:0, opacity:1, scale:1, duration:.28, ease:'power2.out'});
+      setTimeout(()=>{
+        gsap.to(toast, {y:-18, opacity:0, duration:.25, onComplete:()=>toast.style.display='none'});
+      }, 3000);
+    }
+    function occasionalSystemMessage(){
+      const messages = ['난이도를 분석 중입니다','학습 패턴을 분석 중입니다','다음 문항을 조정 중입니다'];
+      const shouldForce = (learningIndex === 2 || learningIndex === 5);
+      if(shouldForce){
+        learningPopupCount += 1;
+        const forcedMessage = learningIndex === 2 ? '학습 패턴을 분석 중입니다' : '난이도 조정 중입니다';
+        showSystemMessage(forcedMessage);
+      }
+    }
+
+    function moveToNextScreen(){
+      currentScreen += 1;
+      if(screens[currentScreen] === 'screen-learning'){
+        studyData.learning.totalStart = new Date().toISOString();
+        learningStartTime = Date.now();
+        renderLearningSet();
+      }
+      if(screens[currentScreen] === 'screen-distractor') startDistractor();
+      if(screens[currentScreen] === 'screen-final-test'){
+        studyData.finalTest.totalStart = new Date().toISOString();
+        renderTestSet();
+      }
+      showScreen(screens[currentScreen]);
+    }
+
+    function nextAction(){
+      const currentId = screens[currentScreen];
+      if(currentId === 'screen-pre'){
+        studyData.preSurvey = { preKnowledge1: getCheckedValue('preKnowledge1'), preKnowledge2: getCheckedValue('preKnowledge2'), preKnowledge3: getCheckedValue('preKnowledge3') };
+        saveState();
+        return moveToNextScreen();
+      }
+      if(currentId === 'screen-ail'){
+        studyData.preSurvey.aiLiteracy = Object.fromEntries(ailItems.map((_,i)=> [`ail${i+1}`, getCheckedValue(`ail${i+1}`)]));
+        saveState();
+        return moveToNextScreen();
+      }
+      if(currentId === 'screen-learning'){
+        const set = learningSets[learningIndex];
+        const state = getLearningSetState(set.setId);
+        state.timeMs += Date.now() - currentSetEnterTime;
+        saveState();
+        occasionalSystemMessage();
+        if(learningIndex < learningSets.length - 1){
+          learningIndex += 1;
+          renderLearningSet();
+          return;
+        } else {
+          studyData.learning.totalEnd = new Date().toISOString();
+          studyData.learning.totalTimeMs = Date.now() - learningStartTime;
+          saveState();
+          return moveToNextScreen();
+        }
+      }
+      if(currentId === 'screen-mj1'){
+        studyData.mj1 = { reviewPercent:mj1_review.value, predictPercent:mj1_predict.value, moreStudyMinutes:mj1_moretime.value };
+        saveState();
+        return moveToNextScreen();
+      }
+      if(currentId === 'screen-final-test'){
+        const set = finalTestSets[testIndex];
+        const state = getTestSetState(set.setId);
+        state.timeMs += Date.now() - currentSetEnterTime;
+        saveState();
+        if(testIndex < finalTestSets.length - 1){
+          testIndex += 1;
+          renderTestSet();
+          return;
+        } else {
+          studyData.finalTest.totalEnd = new Date().toISOString();
+          studyData.finalTest.totalTimeMs = new Date(studyData.finalTest.totalEnd) - new Date(studyData.finalTest.totalStart);
+          saveState();
+          return moveToNextScreen();
+        }
+      }
+      if(currentId === 'screen-mj2'){
+        studyData.mj2 = { predictPercent:mj2_predict.value };
+        saveState();
+        return moveToNextScreen();
+      }
+      if(currentId === 'screen-post'){
+        studyData.postSurvey = {
+          aiReal: getCheckedValue('postAiReal'),
+          aiHelpful: getCheckedValue('postAiHelp'),
+          dependency: getCheckedValue('postDependency'),
+          age: post_age.value,
+          gender: post_gender.value
+        };
+        saveState();
+        return moveToNextScreen();
+      }
+      if(currentId === 'screen-end') return;
+      moveToNextScreen();
+    }
+
+    function startDistractor(){
+      studyData.distractor.start = new Date().toISOString();
+      saveState();
+      generateMathProblem();
+      distractorEndTime = null;
+      if(distractorTimerId) clearInterval(distractorTimerId);
+      distractorTimerId = null;
+      setTimeout(()=>mathAnswer.focus(), 150);
+    }
+
+    function generateMathProblem(){
+      const a = Math.floor(Math.random()*40)+10;
+      const b = Math.floor(Math.random()*40)+10;
+      currentMath = { a, b, correct:a+b, shownAt:Date.now() };
+      mathPrompt.textContent = `${a} + ${b} = ?`;
+      mathAnswer.value = '';
+    }
+
+    function updateDistractorTimer(){
+      const remaining = Math.max(0, distractorEndTime - Date.now());
+      const totalSec = Math.ceil(remaining/1000);
+      const mm = String(Math.floor(totalSec/60)).padStart(2,'0');
+      const ss = String(totalSec%60).padStart(2,'0');
+      distractorTimer.textContent = `${mm}:${ss}`;
+    }
+
+    mathAnswer.addEventListener('keydown', e=>{
+      if(e.key === 'Enter' && currentScreen === screens.indexOf('screen-distractor')){
+        studyData.distractor.responses.push({
+          prompt: `${currentMath.a}+${currentMath.b}`,
+          response: mathAnswer.value,
+          correct: Number(mathAnswer.value) === currentMath.correct,
+          rtMs: Date.now() - currentMath.shownAt
+        });
+        saveState();
+        if(studyData.distractor.responses.length >= 3){
+          studyData.distractor.end = new Date().toISOString();
+          saveState();
+          moveToNextScreen();
+        } else {
+          generateMathProblem();
+        }
+      }
+    });
+
+    ['mj1_review','mj1_predict','mj1_moretime','mj2_predict','post_age','post_gender'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el){
+        el.addEventListener('input', updateNextButton);
+        el.addEventListener('change', updateNextButton);
+      }
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', nextAction);
+    gsap.to('#statusDot', { scale:1.12, boxShadow:'0 0 0 14px rgba(16,163,127,0)', repeat:-1, duration:1.35, ease:'power1.out' });
+    showScreen(screens[currentScreen]);
+  </script>
+</body>
+</html>
