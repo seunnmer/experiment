@@ -530,7 +530,9 @@
     let distractorTimerId = null;
     let currentMath = null;
 
+    const participantId = "P_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
     const studyData = {
+      participantId: participantId,
       condition: 'Non-functional AI',
       startedAt: new Date().toISOString(),
       preSurvey: {},
@@ -675,6 +677,13 @@
         state.hintUsed = true;
         hintBox.classList.add('show');
         typeText(hintText, set.hint);
+        
+        sendData("hint_open", {
+          participantId: studyData.participantId,
+          setId: set.setId,
+          time: new Date().toISOString()
+        });
+
         saveState();
       };
 
@@ -820,6 +829,14 @@
         const set = learningSets[learningIndex];
         const state = getLearningSetState(set.setId);
         state.timeMs += Date.now() - currentSetEnterTime;
+        sendData("answer_submit", {
+          participantId: studyData.participantId,
+          stage: "learning",
+          setId: set.setId,
+          answers: state.answers,
+          timeMs: state.timeMs,
+          time: new Date().toISOString()
+        });
         saveState();
         occasionalSystemMessage();
         if(learningIndex < learningSets.length - 1){
@@ -868,6 +885,13 @@
           gender: post_gender.value
         };
         saveState();
+
+        sendData("experiment_end", {
+          participantId: studyData.participantId,
+          condition: studyData.condition,
+          time: new Date().toISOString(),
+          data: studyData
+        });
         return moveToNextScreen();
       }
       if(currentId === 'screen-end') return;
@@ -931,13 +955,12 @@
     gsap.to('#statusDot', { scale:1.12, boxShadow:'0 0 0 14px rgba(16,163,127,0)', repeat:-1, duration:1.35, ease:'power1.out' });
     showScreen(screens[currentScreen]);
 
-    window.onload = function() {
-  sendData("test");
-};
-
-document.addEventListener("click", function() {
-  sendData("click_test");
+    sendData("experiment_start", {
+  participantId: studyData.participantId,
+  condition: studyData.condition,
+  time: new Date().toISOString()
 });
+
   </script>
 </body>
 </html>
