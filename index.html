@@ -398,6 +398,15 @@
   </div>
 
   <script>
+    function sendData(eventName, extraData = {}) {
+  fetch("여기에_웹앱_URL", {
+    method: "POST",
+    body: JSON.stringify({
+      event: eventName,
+      ...extraData
+    })
+  });
+}
     const learningSets = [
       {
         setId: 1,
@@ -917,6 +926,10 @@
     document.getElementById('nextBtn').addEventListener('click', nextAction);
     gsap.to('#statusDot', { scale:1.12, boxShadow:'0 0 0 14px rgba(16,163,127,0)', repeat:-1, duration:1.35, ease:'power1.out' });
     showScreen(screens[currentScreen]);
+    
+    window.onload = function() {
+  sendData("test");
+};
   </script>
 </body>
 </html>
