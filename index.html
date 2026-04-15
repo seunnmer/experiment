@@ -883,37 +883,27 @@
         participantId: studyData.participantId,
         data: studyData.mj2,
         time: new Date().toISOString()
-      });
+    });
         saveState();
         return moveToNextScreen();
       }
-   if(currentId === 'screen-post'){
-  studyData.postSurvey = {
-    aiReal: getCheckedValue('postAiReal'),
-    aiHelpful: getCheckedValue('postAiHelp'),
-    dependency: getCheckedValue('postDependency'),
-    age: post_age.value,
-    gender: post_gender.value
-  };
+      if(currentId === 'screen-post'){
+        studyData.postSurvey = {
+          aiReal: getCheckedValue('postAiReal'),
+          aiHelpful: getCheckedValue('postAiHelp'),
+          dependency: getCheckedValue('postDependency'),
+          age: post_age.value,
+          gender: post_gender.value
+        };
+        saveState();
 
-  saveState();
-
-  sendData("post_survey_submit", {
-    participantId: studyData.participantId,
-    condition: studyData.condition,
-    data: studyData.postSurvey,
-    time: new Date().toISOString()
-  });
-
-  sendData("experiment_end", {
-    participantId: studyData.participantId,
-    condition: studyData.condition,
-    time: new Date().toISOString(),
-    data: studyData
-  });
-
-  return moveToNextScreen();
-}
+        sendData("experiment_end", {
+          participantId: studyData.participantId,
+          condition: studyData.condition,
+          time: new Date().toISOString(),
+          data: studyData
+        });
+        return moveToNextScreen();
       }
       if(currentId === 'screen-end') return;
       moveToNextScreen();
