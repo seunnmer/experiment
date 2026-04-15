@@ -551,22 +551,8 @@
     window.studyData = studyData;
 
     function saveState(){
-  localStorage.setItem('nonFunctionalAIStudyData', JSON.stringify(studyData));
-
-  fetch("https://script.google.com/macros/s/AKfycbzrajkzKaVsoowaPqfShkOtzKqp-rIHgIqMB58L-z2J7qXn62TN8oAPCTMfK3zJEdYU/exec", {
-  method: "POST",
-  mode: "no-cors",
-  body: JSON.stringify({
-    participantId: studyData.participantId || "unknown",
-    stage: currentScreen,
-    data: studyData
-  }),
-  headers: {
-    "Content-Type": "text/plain;charset=utf-8"
-  }
-})
-.catch(err => console.error(err));
-}
+      localStorage.setItem('nonFunctionalAIStudyData', JSON.stringify(studyData));
+    }
 
     function renderAilItems(){
       const container = document.getElementById('ailItems');
@@ -817,11 +803,21 @@
       const currentId = screens[currentScreen];
       if(currentId === 'screen-pre'){
         studyData.preSurvey = { preKnowledge1: getCheckedValue('preKnowledge1'), preKnowledge2: getCheckedValue('preKnowledge2'), preKnowledge3: getCheckedValue('preKnowledge3') };
+        sendData("pre_survey_submit", {
+          participantId: studyData.participantId,
+          data: studyData.preSurvey,
+          time: new Date().toISOString()
+      });
         saveState();
         return moveToNextScreen();
       }
       if(currentId === 'screen-ail'){
         studyData.preSurvey.aiLiteracy = Object.fromEntries(ailItems.map((_,i)=> [`ail${i+1}`, getCheckedValue(`ail${i+1}`)]));
+        sendData("ai_literacy_submit", {
+          participantId: studyData.participantId,
+          data: studyData.aiLiteracy,
+          time: new Date().toISOString()
+      });
         saveState();
         return moveToNextScreen();
       }
@@ -852,6 +848,11 @@
       }
       if(currentId === 'screen-mj1'){
         studyData.mj1 = { reviewPercent:mj1_review.value, predictPercent:mj1_predict.value, moreStudyMinutes:mj1_moretime.value };
+        sendData("mj1_submit", {
+        participantId: studyData.participantId,
+        data: studyData.mj1,
+        time: new Date().toISOString()
+      });
         saveState();
         return moveToNextScreen();
       }
@@ -867,32 +868,52 @@
         } else {
           studyData.finalTest.totalEnd = new Date().toISOString();
           studyData.finalTest.totalTimeMs = new Date(studyData.finalTest.totalEnd) - new Date(studyData.finalTest.totalStart);
+          sendData("final_test_submit", {
+          participantId: studyData.participantId,
+          data: studyData.finalTest,
+          time: new Date().toISOString()
+        });
           saveState();
           return moveToNextScreen();
         }
       }
       if(currentId === 'screen-mj2'){
         studyData.mj2 = { predictPercent:mj2_predict.value };
+        sendData("mj2_submit", {
+        participantId: studyData.participantId,
+        data: studyData.mj2,
+        time: new Date().toISOString()
+      });
         saveState();
         return moveToNextScreen();
       }
-      if(currentId === 'screen-post'){
-        studyData.postSurvey = {
-          aiReal: getCheckedValue('postAiReal'),
-          aiHelpful: getCheckedValue('postAiHelp'),
-          dependency: getCheckedValue('postDependency'),
-          age: post_age.value,
-          gender: post_gender.value
-        };
-        saveState();
+   if(currentId === 'screen-post'){
+  studyData.postSurvey = {
+    aiReal: getCheckedValue('postAiReal'),
+    aiHelpful: getCheckedValue('postAiHelp'),
+    dependency: getCheckedValue('postDependency'),
+    age: post_age.value,
+    gender: post_gender.value
+  };
 
-        sendData("experiment_end", {
-          participantId: studyData.participantId,
-          condition: studyData.condition,
-          time: new Date().toISOString(),
-          data: studyData
-        });
-        return moveToNextScreen();
+  saveState();
+
+  sendData("post_survey_submit", {
+    participantId: studyData.participantId,
+    condition: studyData.condition,
+    data: studyData.postSurvey,
+    time: new Date().toISOString()
+  });
+
+  sendData("experiment_end", {
+    participantId: studyData.participantId,
+    condition: studyData.condition,
+    time: new Date().toISOString(),
+    data: studyData
+  });
+
+  return moveToNextScreen();
+}
       }
       if(currentId === 'screen-end') return;
       moveToNextScreen();
